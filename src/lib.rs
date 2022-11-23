@@ -1,4 +1,4 @@
-use futures::{Stream, StreamExt};
+use futures_core::Stream;
 use std::mem::ManuallyDrop;
 use std::{
     pin::Pin,
@@ -49,8 +49,8 @@ impl<S: Stream<Item = T> + Unpin, T, U: FnOnce()> Stream for DropStream<S, T, U>
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let stream = &mut self.stream;
-        stream.poll_next_unpin(cx)
+        let stream = Pin::new(&mut self.stream);
+        stream.poll_next(cx)
     }
 }
 
