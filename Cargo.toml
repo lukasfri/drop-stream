@@ -1,7 +1,12 @@
 [package]
 name = "drop-stream"
 version = "0.2.0"
+authors = ["Lukas Friman <lukas@dreamplay.net>"]
+description = "A stream that wraps another stream with a closure that is called once it is dropped."
+documentation = "https://docs.rs/drop-stream"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/DreamplaySE/drop-stream"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
