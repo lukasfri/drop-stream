@@ -1,6 +1,5 @@
 use futures_core::Stream;
 use std::{
-    mem::ManuallyDrop,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -33,14 +32,14 @@ use std::{
 pub struct DropStream<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> {
     stream: S,
     // ManuallyDrop used to support FnOnce since ownership of FnOnce needs to be gained in the Drop::drop() method.
-    dropper: ManuallyDrop<U>,
+    dropper: Option<U>,
 }
 
 impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> DropStream<S, T, U> {
     pub fn new(stream: S, dropper: U) -> Self {
         Self {
             stream,
-            dropper: ManuallyDrop::new(dropper),
+            dropper: Some(dropper),
         }
     }
 }
@@ -56,12 +55,12 @@ impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Stream for DropStream<
 
 impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Drop for DropStream<S, T, U> {
     fn drop(&mut self) {
-        // Safety: field is taken, and must not be accessed again
-        // Since this is in Drop::drop, it is not possible to access it afterwards.
-        unsafe {
-            let val = ManuallyDrop::take(&mut self.dropper);
-            val();
-        }
+        let Some(dropper) = self.dropper.take() else {
+            // Only taken in the "drop"-method, and always set in the constructor. Thus it cannot be None here.
+            unreachable!()
+        };
+
+        dropper()
     }
 }
 
