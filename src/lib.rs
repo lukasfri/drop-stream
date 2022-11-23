@@ -1,6 +1,6 @@
 use futures_core::Stream;
-use std::mem::ManuallyDrop;
 use std::{
+    mem::ManuallyDrop,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -30,22 +30,22 @@ use std::{
 ///     );
 /// }
 /// ```
-pub struct DropStream<S: Stream<Item = T> + Unpin, T, U: FnOnce()> {
+pub struct DropStream<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> {
     stream: S,
     // ManuallyDrop used to support FnOnce since ownership of FnOnce needs to be gained in the Drop::drop() method.
-    dropper: ManuallyDrop<Box<U>>,
+    dropper: ManuallyDrop<U>,
 }
 
-impl<S: Stream<Item = T> + Unpin, T, U: FnOnce()> DropStream<S, T, U> {
+impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> DropStream<S, T, U> {
     pub fn new(stream: S, dropper: U) -> Self {
         Self {
             stream,
-            dropper: ManuallyDrop::new(Box::new(dropper)),
+            dropper: ManuallyDrop::new(dropper),
         }
     }
 }
 
-impl<S: Stream<Item = T> + Unpin, T, U: FnOnce()> Stream for DropStream<S, T, U> {
+impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Stream for DropStream<S, T, U> {
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -54,7 +54,7 @@ impl<S: Stream<Item = T> + Unpin, T, U: FnOnce()> Stream for DropStream<S, T, U>
     }
 }
 
-impl<S: Stream<Item = T> + Unpin, T, U: FnOnce()> Drop for DropStream<S, T, U> {
+impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Drop for DropStream<S, T, U> {
     fn drop(&mut self) {
         // Safety: field is taken, and must not be accessed again
         // Since this is in Drop::drop, it is not possible to access it afterwards.
