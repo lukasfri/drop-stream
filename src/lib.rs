@@ -72,23 +72,21 @@ pub trait DropStreamExt<U: FnOnce() + Unpin>: Stream + Unpin + Sized {
     /// use futures::{stream::repeat, Stream};
     /// use drop_stream::DropStreamExt;
     ///
-    /// fn main() {
-    ///     let some_stream = repeat(true);
+    /// let some_stream = repeat(true);
     ///
-    ///     let mut has_run = false;
-    ///     let has_run_ref = &mut has_run;
-    ///     let drop_stream = some_stream.on_drop(move || {
-    ///         *has_run_ref = true;
-    ///         println!("Stream has been dropped!")
-    ///     });
+    /// let mut has_run = false;
+    /// let has_run_ref = &mut has_run;
+    /// let drop_stream = some_stream.on_drop(move || {
+    ///     *has_run_ref = true;
+    ///     println!("Stream has been dropped!")
+    /// });
     ///
-    ///     let mut drop_stream = Box::pin(drop_stream);
+    /// let mut drop_stream = Box::pin(drop_stream);
     ///
-    ///     // Some stream work and polling...
+    /// // Some stream work and polling...
     ///
-    ///     drop(drop_stream); // Runs the closure
-    ///     assert!(has_run);
-    /// }
+    /// drop(drop_stream); // Runs the closure
+    /// assert!(has_run);
     /// ```
     fn on_drop(self, dropper: U) -> DropStream<Self, Self::Item, U>;
 }
