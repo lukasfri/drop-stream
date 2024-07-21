@@ -1,6 +1,6 @@
 [package]
 name = "drop-stream"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Lukas Friman <lukas@dreamplay.net>"]
 description = "A stream that wraps another stream with a closure that is called once it is dropped."
 documentation = "https://docs.rs/drop-stream"
@@ -12,6 +12,7 @@ repository = "https://github.com/DreamplaySE/drop-stream"
 
 [dependencies]
 futures-core = "0.3"
+pin-project = "1"
 
 [dev-dependencies]
 futures = "0.3"

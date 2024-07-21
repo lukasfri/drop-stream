@@ -1,4 +1,5 @@
 use futures_core::Stream;
+use pin_project::{pin_project, pinned_drop};
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -29,13 +30,15 @@ use std::{
 ///     );
 /// }
 /// ```
-pub struct DropStream<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> {
+#[pin_project(PinnedDrop)]
+pub struct DropStream<S: Stream<Item = T>, T, U: FnOnce()> {
+    #[pin]
     stream: S,
-    // ManuallyDrop used to support FnOnce since ownership of FnOnce needs to be gained in the Drop::drop() method.
+    // Option used to wrap FnOnce since ownership of FnOnce needs to be gained in the Drop::drop() method.
     dropper: Option<U>,
 }
 
-impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> DropStream<S, T, U> {
+impl<S: Stream<Item = T>, T, U: FnOnce()> DropStream<S, T, U> {
     pub fn new(stream: S, dropper: U) -> Self {
         Self {
             stream,
@@ -44,18 +47,19 @@ impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> DropStream<S, T, U> {
     }
 }
 
-impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Stream for DropStream<S, T, U> {
+impl<S: Stream<Item = T>, T, U: FnOnce()> Stream for DropStream<S, T, U> {
     type Item = T;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let stream = Pin::new(&mut self.stream);
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let stream = self.project().stream;
         stream.poll_next(cx)
     }
 }
 
-impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Drop for DropStream<S, T, U> {
-    fn drop(&mut self) {
-        let Some(dropper) = self.dropper.take() else {
+#[pinned_drop]
+impl<S: Stream<Item = T>, T, U: FnOnce()> PinnedDrop for DropStream<S, T, U> {
+    fn drop(self: Pin<&mut Self>) {
+        let Some(dropper) = self.project().dropper.take() else {
             // Only taken in the "drop"-method, and always set in the constructor. Thus it cannot be None here.
             unreachable!()
         };
@@ -64,7 +68,7 @@ impl<S: Stream<Item = T> + Unpin, T, U: FnOnce() + Unpin> Drop for DropStream<S,
     }
 }
 
-pub trait DropStreamExt<U: FnOnce() + Unpin>: Stream + Unpin + Sized {
+pub trait DropStreamExt<U: FnOnce()>: Stream + Sized {
     /// Wraps the stream with a closure that is called once it is dropped.
     /// ex:
     /// ```rust
@@ -91,9 +95,9 @@ pub trait DropStreamExt<U: FnOnce() + Unpin>: Stream + Unpin + Sized {
     fn on_drop(self, dropper: U) -> DropStream<Self, Self::Item, U>;
 }
 
-impl<T, U: FnOnce() + Unpin> DropStreamExt<U> for T
+impl<T, U: FnOnce()> DropStreamExt<U> for T
 where
-    T: Stream + Unpin + Sized,
+    T: Stream + Sized,
 {
     fn on_drop(self, dropper: U) -> DropStream<T, T::Item, U> {
         DropStream::new(self, dropper)
